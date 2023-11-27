@@ -7,7 +7,7 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug executable 'minigrep'",
+            "name": "Debug with right command",
             "cargo": {
                 "args": [
                     "build",
@@ -20,6 +20,25 @@
                 }
             },
             "args": ["minigrep", "test.txt"],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug with error command",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=minigrep",
+                    "--package=minigrep"
+                ],
+                "filter": {
+                    "name": "minigrep",
+                    "kind": "bin"
+                }
+            },
+            // 错误的路径
+            "args": ["minigrep", "test112.txt"],
             "cwd": "${workspaceFolder}"
         },
         {

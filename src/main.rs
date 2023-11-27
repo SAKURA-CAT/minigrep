@@ -4,7 +4,10 @@ use std::env;
 use std::fmt;
 // 文件读取
 use std::fs;
+// 系统控制
 use std::process;
+// 错误捕获
+use std::error::Error;
 
 
 /**
@@ -40,9 +43,11 @@ fn main() {
         process::exit(1);
     });
     println!("query: {1}, file_path: {0}", config.query, config.file_path);
-    // 读取文件内容,file_path的生命在此结束
-    let conents = fs::read_to_string(config.file_path).expect("");
-    println!("Content: \n{conents}")
+    // 读取并搜索文件内容，由于在此处我们并不关注search的Ok返回值（因为所有的逻辑都在search中处理），这用march的if let实现
+    if let Err(e) = search(&config){
+        println!("Problem reading file {} : {e}", config.file_path);
+        process::exit(2);
+    }
 }
 
 
@@ -102,6 +107,21 @@ impl CommandConfig{
     }
 }
 
+
+
+/**
+ * 输入查询的文件路径和查询的关键字，进行查询，实际上没有对输入的内容做更改，因此这里采用借用的形式
+ * 因为要实现错误捕捉，所以需要使用Result结构体，需要满足Result<T,E> 的要求，因此使用了 Ok(()) 返回一个单元类型 ()
+ * Box<dyn Error>说明这是一个实现了Error特征的特征对象，这样我们就无需指定具体的错误类型
+ */
+fn search(config: &CommandConfig) -> Result<(), Box<dyn Error>>{
+    // 借用的方式，所以需要借用file_path的所有权
+    let contents = fs::read_to_string(&config.file_path)?;
+
+    println!("With text:\n{contents}");
+
+    Ok(())
+}
 
 
 
