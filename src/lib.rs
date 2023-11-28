@@ -89,12 +89,56 @@ impl CommandConfig{
  * 因为要实现错误捕捉，所以需要使用Result结构体，需要满足Result<T,E> 的要求，因此使用了 Ok(()) 返回一个单元类型 ()
  * Box<dyn Error>说明这是一个实现了Error特征的特征对象，这样我们就无需指定具体的错误类型
  */
-pub fn search(config: &CommandConfig) -> Result<(), Box<dyn Error>>{
+pub fn run(config: &CommandConfig) -> Result<(), Box<dyn Error>>{
     // 借用的方式，所以需要借用file_path的所有权
     let contents = fs::read_to_string(&config.file_path)?;
 
-    println!("With text:\n{contents}");
+    for line in search(&config.query, &contents){
+        println!("{line}")
+    }
 
     Ok(())
+}
+
+
+/**
+ * 在函数内容
+ */
+fn search<'a>(query: &str, contents: &'a str) -> Vec<&'a str>{
+    let mut results: Vec<&str> = vec![];
+    for line in contents.lines(){
+        if line.contains(query){
+            results.push(line)
+        }
+    }
+    return results
+}
+
+
+// 测试用例
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn one_result() {
+        let query = "duct";
+        let contents = "\
+Rust:
+safe, fast, productive.
+Pick three.";
+        assert_eq!(vec!["safe, fast, productive."], search(query, contents));
+    }
+
+    #[test]
+    fn no_result(){
+        let query = "123";
+        let contents = "\
+Rust:
+safe, fast, productive.
+Pick three.";
+        assert_eq!(vec![] as  Vec<&str>, search(query, contents));
+    }
+
 }
 

@@ -20,8 +20,8 @@ fn main() {
     });
     println!("query: {1}, file_path: {0}\n", config.query, config.file_path);
 
-    // 读取并搜索文件内容，由于在此处我们并不关注search的Ok返回值（因为所有的逻辑都在search中处理），这用march的if let实现
-    if let Err(e) = minigrep::search(&config){
+    // 读取并搜索文件内容，由于在此处我们并不关注run的Ok返回值（因为所有的逻辑都在run中处理），这用march的if let实现
+    if let Err(e) = minigrep::run(&config){
         println!("Problem reading file {} : {e}", config.file_path);
         process::exit(2);
     }
