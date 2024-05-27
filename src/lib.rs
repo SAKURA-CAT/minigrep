@@ -1,144 +1,124 @@
-// 输出可视化
-use std::fmt;
-// 文件读取
-use std::fs;
-// 错误捕获
-use std::error::Error;
+mod search;
+mod version;
+mod about;
+
+use clap::{Parser, Subcommand};
+
+#[derive(Parser, Debug)]
+#[command(version, about, author)]
+pub struct Cli {
+    #[command(subcommand)]
+    subcommand: Option<Commands>,
+}
 
 
-/**
- * Array实际上是包装了Vec，主要拓展了Display功能
- */
-pub struct Array(pub Vec<String>);
+#[derive(Subcommand, Debug, PartialEq)]
+pub enum Commands {
+    /// Search word in file, default use if not provided subcommand
+    Search {
+        /// Search word
+        query: String,
+        /// Search file path
+        file_path: String,
+        /// Ignore case
+        #[arg(short, long, default_value = "false")]
+        ignore_case: bool,
+    },
+    /// Say hi
+    Hi {},
+    /// Version
+    Version {},
+}
 
-impl fmt::Display for Array {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let mut s = String::new();
-        s.push('[');
-        for i in &self.0 {
-            s.push_str(&i);
-            if i != &self.0[self.0.len()-1]{
-                s.push_str(", ");
+impl Cli {
+    /// new a Cli instance and execute the subcommand
+    pub fn new() {
+        let cli = Cli::parse();
+        cli.execute();
+    }
+    /// parse from args
+    pub fn execute(&self) {
+        match &self.subcommand {
+            Some(Commands::Search { query, file_path, ignore_case }) => {
+                search::run(query.to_string(), file_path.to_string(), *ignore_case);
+            }
+            Some(Commands::Hi {}) => {
+                about::run();
+            }
+            Some(Commands::Version {}) => {
+                version::run();
+            }
+            _ => {
+                about::run();
             }
         }
-        s.push(']');
-        write!(f, "{}", s)
-    }
-}
-
-/**
- * 解析命令行后，返回命令行配置
- * 
- * # 参数
- * query: 寻找的关键字
- * file_path: 文件路径
- */
- pub struct CommandConfig{
-    pub query: String,
-    pub file_path: String
- }
-
-
-impl CommandConfig{
-    /**
-     * 传入env::args，创建一个命令配置，索引0是关键字，索引1是文件路径
-     * 此方法没有添加错误检查，需使用parse方法
-     * 
-     * # 参数
-     * args: 字符串数组
-     * 
-     * # 返回值
-     * (query, file_path)
-     * query: 关键字
-     * file_path: 文件路径
-     * 
-     * # 用法
-     */
-    fn new(commands: &[String]) -> CommandConfig{
-        // 错误处理，
-        let query = commands[0].clone();
-        let file_path = commands[1].clone();
-        // 返回处理后的数组
-        CommandConfig { query, file_path}
-    }
-
-    /**
-     * 解析命令，返回一个命令配置，添加了错误捕获
-     * 由于标准库会将命令本身也当作命令行解析的一部分，所以第一个索引并不算做处理的一部分，在这个函数中被切片
-     * 
-     * # 参数
-     * args: 命令行参数，此时如果输入的是&Vec<String>，会发生从字符串变长数组到字符串切片的引用的隐式变换
-     * 
-     * # 返回值
-     * 返回值是一个Result，第一个参数是CommandConfig，第二个参数是静态编译字符串
-     * 可以给静态字符串增加生命周期标识，str生命周期将与整个程序的生命周期相同（直到程序结束才被释放）
-     */
-    pub fn parse(args: &[String]) -> Result<CommandConfig, &'static str>{
-        if args.len() < 3{
-            return Err("not enough arguments");
-        } 
-        // 没有任何问题
-        Ok(CommandConfig::new(&args[1..3]))
     }
 }
 
 
-
-/**
- * 输入查询的文件路径和查询的关键字，进行查询，实际上没有对输入的内容做更改，因此这里采用借用的形式
- * 因为要实现错误捕捉，所以需要使用Result结构体，需要满足Result<T,E> 的要求，因此使用了 Ok(()) 返回一个单元类型 ()
- * Box<dyn Error>说明这是一个实现了Error特征的特征对象，这样我们就无需指定具体的错误类型
- */
-pub fn run(config: &CommandConfig) -> Result<(), Box<dyn Error>>{
-    // 借用的方式，所以需要借用file_path的所有权
-    let contents = fs::read_to_string(&config.file_path)?;
-
-    for line in search(&config.query, &contents){
-        println!("{line}")
-    }
-
-    Ok(())
+// ---------------------------------- 测试 ----------------------------------
+/// 测试用的搜索套件
+#[cfg(test)]
+struct TestSearchSuite {
+    query: String,
+    file_path: String,
+    ignore_case: bool,
 }
 
-
-/**
- * 在函数内容
- */
-fn search<'a>(query: &str, contents: &'a str) -> Vec<&'a str>{
-    let mut results: Vec<&str> = vec![];
-    for line in contents.lines(){
-        if line.contains(query){
-            results.push(line)
+#[cfg(test)]
+impl TestSearchSuite {
+    fn new(query: &str, ignore_case: bool) -> TestSearchSuite {
+        let file_path = std::env::current_dir().unwrap().join("test.txt").to_str().unwrap().to_string();
+        TestSearchSuite {
+            query: query.to_string(),
+            file_path,
+            ignore_case,
         }
     }
-    return results
+    fn to_command(&self) -> Commands {
+        Commands::Search {
+            query: self.query.clone(),
+            file_path: self.file_path.clone(),
+            ignore_case: self.ignore_case,
+        }
+    }
 }
 
 
-// 测试用例
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn one_result() {
-        let query = "duct";
-        let contents = "\
-Rust:
-safe, fast, productive.
-Pick three.";
-        assert_eq!(vec!["safe, fast, productive."], search(query, contents));
+    fn test_cli_search() {
+        let s = TestSearchSuite::new("public", false);
+        let cli = Cli::parse_from(&["", "search", s.query.as_str(), s.file_path.as_str()]);
+        let result = cli.subcommand.unwrap();
+        assert_eq!(result, s.to_command());
     }
 
     #[test]
-    fn no_result(){
-        let query = "123";
-        let contents = "\
-Rust:
-safe, fast, productive.
-Pick three.";
-        assert_eq!(vec![] as  Vec<&str>, search(query, contents));
+    fn test_cli_search_ignore_case() {
+        let s = TestSearchSuite::new("public", true);
+        let mut cli = Cli::parse_from(&["", "search", s.query.as_str(), s.file_path.as_str(), "--ignore-case"]);
+        let result = cli.subcommand.unwrap();
+        assert_eq!(result, s.to_command());
+        cli = Cli::parse_from(&["", "search", s.query.as_str(), s.file_path.as_str(), "-i"]);
+        let result = cli.subcommand.unwrap();
+        assert_eq!(result, s.to_command());
     }
 
-}
+    #[test]
+    fn test_cli_hi() {
+        let cli = Cli::parse_from(&["", "hi"]);
+        let result = cli.subcommand.unwrap();
+        assert_eq!(result, Commands::Hi {});
+    }
 
+    #[test]
+    fn test_cli_version() {
+        let cli = Cli::parse_from(&["", "version"]);
+        let result = cli.subcommand.unwrap();
+        assert_eq!(result, Commands::Version {});
+    }
+}
